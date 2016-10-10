@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
@@ -44,6 +45,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private TextView txtResult;
 
     private static final String PREF_ACCOUNT_NAME = "accountName";
+    private static final String TAG = "MainActivity";
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
     static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
@@ -76,15 +78,18 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     @Override
     public void onPermissionsGranted(int requestCode, List<String> perms) {
+        Log.d(TAG, "onPermissionsGranted");
     }
 
     @Override
     public void onPermissionsDenied(int requestCode, List<String> perms) {
+        Log.d(TAG, "onPermissionsDenied");
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        Log.d(TAG, "onRequestPermissionsResult");
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
     }
 
@@ -128,13 +133,16 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
     private void getResultFromApi() {
+        Log.d(TAG, "getResultFromApi");
         if (!isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (googleAccountCredential.getSelectedAccountName() == null) {
             chooseAccount();
         } else if (!isDeviceOnline()) {
+            Log.d(TAG, "no network connection");
             txtResult.setText("No network connection available.");
         } else {
+            Log.d(TAG, "staring request");
             new MakeRequestTask(googleAccountCredential).execute();
         }
     }
@@ -146,6 +154,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     }
 
     private void acquireGooglePlayServices() {
+        Log.d(TAG, "acquireGooglePlayServices");
         GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
         final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
         if (apiAvailability.isUserResolvableError(connectionStatusCode)) {
@@ -159,6 +168,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     @AfterPermissionGranted(REQUEST_PERMISSION_GET_ACCOUNTS)
     private void chooseAccount() {
+        Log.d(TAG, "chooseAccount");
         boolean hasPermissions = EasyPermissions.hasPermissions(this, Manifest.permission.GET_ACCOUNTS);
         if (hasPermissions) {
             String accountName = getPreferences(Context.MODE_PRIVATE).getString(PREF_ACCOUNT_NAME, null);
@@ -167,9 +177,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                 googleAccountCredential.setSelectedAccountName(accountName);
                 getResultFromApi();
             } else {
+                Log.d(TAG, "showing account picker");
                 startActivityForResult(googleAccountCredential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
             }
         } else {
+            Log.d(TAG, "check access for GET_ACCOUNTS");
             EasyPermissions.requestPermissions(this, "This app needs to access your Google account (via Contacts).",
                     REQUEST_PERMISSION_GET_ACCOUNTS,
                     Manifest.permission.GET_ACCOUNTS);
@@ -207,6 +219,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         }
 
         private List<String> getDataFromApi() throws IOException {
+            Log.d(TAG, "getDataFromApi");
             List<String> labels = new ArrayList<>();
             ListLabelsResponse listResponse = gmailService.users().labels().list("me").execute();
             for (Label label : listResponse.getLabels()) {
@@ -217,11 +230,13 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
         @Override
         protected void onPreExecute() {
+            Log.d(TAG, "onPreExecute");
             txtResult.setText("loading...");
         }
 
         @Override
         protected void onPostExecute(List<String> output) {
+            Log.d(TAG, "onPostExecute");
             if (output == null || output.size() == 0) {
                 txtResult.setText("No results returned.");
             } else {
@@ -237,12 +252,15 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
             }
 
             if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
+                Log.w(TAG, "GooglePlayServicesAvailabilityIOException");
                 GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
                 int connectionStatusCode = ((GooglePlayServicesAvailabilityIOException) mLastError).getConnectionStatusCode();
                 apiAvailability.getErrorDialog(MainActivity.this, connectionStatusCode, REQUEST_GOOGLE_PLAY_SERVICES).show();
             } else if (mLastError instanceof UserRecoverableAuthIOException) {
+                Log.w(TAG, "UserRecoverableAuthIOException");
                 startActivityForResult(((UserRecoverableAuthIOException) mLastError).getIntent(), MainActivity.REQUEST_AUTHORIZATION);
             } else {
+                Log.w(TAG, mLastError.getMessage());
                 txtResult.setText("Error: " + mLastError.getMessage());
             }
         }
